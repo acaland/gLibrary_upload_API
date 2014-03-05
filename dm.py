@@ -404,12 +404,12 @@ def sign_s3():
 
 def get_proxy(vo):
 
-	#if vo == "vo.indicate-project.eu":
-        # 	proxy_file = '/tmp/indicate_proxy'
-        #        robot_serial = '26467'
-        #        certificate_md5 = '678db46f8ccd12ccb240cd2f91d18205'
-        #        attribute = '/vo.indicate-project.eu'
-        if vo == "vo.aginfra.eu":
+	if vo == "vo.indicate-project.eu":
+         	proxy_file = '/tmp/indicate_proxy'
+                robot_serial = '26467'
+                certificate_md5 = '678db46f8ccd12ccb240cd2f91d18205'
+                attribute = '/vo.indicate-project.eu'
+        elif vo == "vo.aginfra.eu":
                 robot_serial = '25667'
                 attribute = '/vo.aginfra.eu'
                 certificate_md5 = '62b53afcb320386d6ad938d3d2fdfbfc'
@@ -429,6 +429,11 @@ def get_proxy(vo):
                 proxy_file = '/tmp/decide_proxy'
                 certificate_md5 = '2ce14167e631d8bd1fb4a5f2b86602e0'
                 attribute='/vo.eu-decide.eu'
+	elif vo == "eumed":
+                robot_serial = '27696'
+                proxy_file = '/tmp/eumed_proxy'
+                certificate_md5 = 'bc681e2bd4c3ace2a4c54907ea0c379b'
+                attribute='/eumed'
         else:
                 robot_serial = '25207'
                 proxy_file = '/tmp/cataniasg_proxy'
