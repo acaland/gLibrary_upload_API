@@ -134,8 +134,8 @@ def whoami():
 
 @dm.route("/<vo>/<se>/<path:path>")
 def download(vo, se, path):
-	print "sono in download"
-	print vo
+	print "Download API"
+	print "VO: ", vo
 		
 	#get_proxy(robot_serial, vo, attribute, proxy)
 	proxy = get_proxy(vo)
@@ -170,9 +170,10 @@ def download(vo, se, path):
 
 	
 	#path = "/%s?authip=%s" % (path, request.environ['REMOTE_ADDR'])
-	print "se:", se
-	print "path:", path
-	print "proxy:", proxy
+	print "SE:", se
+	print "PATH:", path
+	print "PROXY:", proxy
+	print "HEADERS:", headers
 	conn = httplib.HTTPSConnection(se, cert_file=proxy, key_file=proxy)
 	try:
 		conn.request("GET", path, None, headers)
@@ -181,14 +182,14 @@ def download(vo, se, path):
 		print e
 		abort(500)
 	resp = conn.getresponse()
-	print resp.status
-	print resp.reason
-	print resp.getheaders()
+	print "STATUS: ", resp.status
+	print "REASON: " , resp.reason
+	print "HEADERS: ", resp.getheaders()
 	redirect_url = resp.getheader("location")
-	print redirect_url
+	print "REDIRECT URL: ", redirect_url
 	if redirect_url == None:
 		output = resp.read()
-		print output
+		print "RESPONSE: ", output
 		conn.close()
 		abort(404)
 		#return HttpResponseNotFound("replica (%s) not found<br>%s" % (link, output))
@@ -448,7 +449,7 @@ def get_proxy(vo):
 	#etokenserver = "myproxy.ct.infn.it"
 	#server_url = "http://myproxy.ct.infn.it:8082/eTokenServer/eToken/%s?voms=%s:%s&proxy-renewal=false&disable-voms-proxy=true" % (certificate_serial, vo, attribute)
 	server_url = "http://etokenserver.ct.infn.it:8082/eTokenServer/eToken/%s?voms=%s:/%s&proxy-renewal=false&disable-voms-proxy=true" % (certificate_md5, vo, attribute)
-	print server_url
+	print "PROXY REQUEST: ", server_url
 	f = urllib.urlopen(server_url)
 	proxy = open(proxy_file, "w");
 	proxy.write(f.read())
