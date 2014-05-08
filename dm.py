@@ -56,7 +56,7 @@ def crossdomain(origin=None, methods=None, headers=None,
 def browser(vo,se,path):
 	print "DAV browser"
 	print "request method>", request.method 
-	print "request headers>", type(request.headers)
+	print "request headers>"
 	headers = {}
 	if request.method == 'MOVE':
 		headers['Overwrite'] = request.headers.get('Overwrite')
@@ -68,7 +68,7 @@ def browser(vo,se,path):
 		print "replaced", type(request.headers.get('Destination').replace("http://glibrary.ct.infn.it/dm/dav/"+str(vo)+"/"+ str(se), "https://" + str(se)))
 		headers['Destination'] = request.headers.get('Destination').replace("http://glibrary.ct.infn.it/dm/dav/"+str(vo)+"/"+ str(se), "https://" + str(se))  
 		print type(headers['Destination'])
-		headers['Depth'] = request.headers.get('Depth') 
+	headers['Depth'] = request.headers.get('Depth') 
 	for h, v in request.headers:
 		print h, v
 		#headers[h] = v
@@ -135,6 +135,7 @@ def whoami():
 @dm.route("/<vo>/<se>/<path:path>")
 def download(vo, se, path):
 	print "Download API"
+	print "Cookies:", request.cookies
 	print "VO: ", vo
 		
 	#get_proxy(robot_serial, vo, attribute, proxy)
@@ -157,6 +158,7 @@ def download(vo, se, path):
 	if se in ['infn-se-03.ct.pi2s2.it', 'vega-se.ct.infn.it','se.reef.man.poznan.pl','prod-se-03.ct.infn.it']:
 		if 'HTTP_X_FORWARDED_FOR' in request.environ:
 			headers = {"X-Auth-Ip": request.environ['HTTP_X_FORWARDED_FOR']}
+			path = "/%s" % path
 		else:
 			headers = {"X-Auth-Ip": request.environ['REMOTE_ADDR']}
 			path = "/%s" % path
@@ -302,7 +304,7 @@ def put(vo, filename, se, path):
 		if resp.status == 307:
 			return jsonify({"status": resp.status, "redirect": redirect_url})
 		else:
-			return jsonify({"status": resp.status, "reason": resp.reason, "response": responseTxt})
+			return jsonify({"status": resp.status, "reason": resp.reason, "response": responseTxt}), resp.status
 
 	else:   
 		path = "/%s?metacmd=put&filename=%s&metaopt=755&authip=%s" % (path, filename, request.environ['REMOTE_ADDR'])
