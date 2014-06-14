@@ -1,10 +1,11 @@
-from flask import Flask, request, redirect, abort, jsonify, make_response, current_app
-import json, re, urllib, httplib, os, time, base64, hmac, sha
+from flask import Flask, request, redirect, abort, jsonify, make_response, current_app, send_from_directory
+import json, re, urllib, httplib, os, time, base64, hmac, sha, requests
 from poster.encode import multipart_encode
 from poster.streaminghttp import register_openers
 
 from datetime import timedelta
 from functools import update_wrapper
+import warcpayload
 
 dm = Flask(__name__)
 
@@ -381,6 +382,40 @@ def putdone(se, path, vo="", filename=""):
 	#print responseTxt
 	return jsonify({'success': True, 'response': resp.reason});
 	
+@dm.route('/warc/extract/<vo>/<se>/<path:path>/<offset>')
+def warc(vo, se, path, offset):
+
+	print "WarcExtract"
+	print "vo:", vo
+	print "se:", se
+	print "path:", path
+	print "offset", offset
+
+	proxy = get_proxy(vo)
+
+	local_filename = "/tmp/" + path.split('/')[-1]
+	print "local_filename:",  local_filename
+	url = "https://" + se + "/" + path
+	print "url:", url
+	r = requests.get(url, stream=True, cert=proxy, verify=False)
+	with open(local_filename, 'wb') as f:
+		for chunk in r.iter_content(chunk_size=1024): 
+			if chunk: # filter out keep-alive new chunks
+				f.write(chunk)
+				f.flush()
+	print "write completed"
+	print local_filename, offset
+	#print warcpayload.dump_payload_from_file
+	#print dir(warcpayload.dump_payload_from_file)
+	#warcpayload.dump_payload_from_file(local_filename, offset, None, '/tmp/warc_dump')
+	os.system("/opt/python27/bin/warcpayload " + local_filename + ":" + offset + " > /tmp/warc_dump")
+	print "file extracted"
+	#print "payload:", payload
+	#out = open('/tmp/data', 'wb')
+	#out.write(payload)
+
+	return send_from_directory('/tmp','warc_dump')
+
 	
 @dm.route('/sign_s3/')
 def sign_s3():
