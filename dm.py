@@ -69,7 +69,8 @@ def browser(vo,se,path):
 		print "replaced", type(request.headers.get('Destination').replace("http://glibrary.ct.infn.it/dm/dav/"+str(vo)+"/"+ str(se), "https://" + str(se)))
 		headers['Destination'] = request.headers.get('Destination').replace("http://glibrary.ct.infn.it/dm/dav/"+str(vo)+"/"+ str(se), "https://" + str(se))  
 		print type(headers['Destination'])
-	headers['Depth'] = request.headers.get('Depth') 
+	if request.headers.get('Depth'):
+		headers['Depth'] = request.headers.get('Depth') 
 	for h, v in request.headers:
 		print h, v
 		#headers[h] = v
@@ -156,7 +157,7 @@ def download(vo, se, path):
 		print "HTTP_X_FORWARDED_FOR: ", request.environ['HTTP_X_FORWARDED_FOR']
 	#print request.META['HTTP_X_FORWARDED_HOST']
 
-	if se in ['infn-se-03.ct.pi2s2.it', 'vega-se.ct.infn.it','se.reef.man.poznan.pl','prod-se-03.ct.infn.it']:
+	if se in ['infn-se-03.ct.pi2s2.it', 'se01.grid.arn.dz','se.reef.man.poznan.pl','prod-se-03.ct.infn.it']:
 		if 'HTTP_X_FORWARDED_FOR' in request.environ:
 			headers = {"X-Auth-Ip": request.environ['HTTP_X_FORWARDED_FOR']}
 			path = "/%s" % path
@@ -205,7 +206,7 @@ def upload(vo, filename, se, path):
 		
 	proxy = get_proxy(vo)
 
-	if se in ['infn-se-03.ct.pi2s2.it', 'vega-se.ct.infn.it','prod-se-03.ct.infn.it']:
+	if se in ['infn-se-03.ct.pi2s2.it', 'se01.grid.arn.dz','prod-se-03.ct.infn.it']:
 		#headers = {"X-Auth-Ip": request.environ['REMOTE_ADDR']}
 		path = "/%s/%s" % (path, filename)
 		conn = httplib.HTTPSConnection(se, cert_file=proxy, key_file=proxy)
@@ -276,7 +277,7 @@ def put(vo, filename, se, path):
 		
 	proxy = get_proxy(vo)
 
-	if se in ['infn-se-03.ct.pi2s2.it', 'vega-se.ct.infn.it','se.reef.man.poznan.pl','prod-se-03.ct.infn.it']:
+	if se in ['infn-se-03.ct.pi2s2.it', 'se01.grid.arn.dz','se.reef.man.poznan.pl','prod-se-03.ct.infn.it']:
 		if 'HTTP_X_FORWARDED_FOR' in request.environ:
 			headers = {"X-Auth-Ip": request.environ['HTTP_X_FORWARDED_FOR']}
 		else:
@@ -285,6 +286,7 @@ def put(vo, filename, se, path):
 		print "Delegating IP:", headers['X-Auth-Ip']
 		#headers = {"X-Auth-Ip": request.environ['REMOTE_ADDR']}
 		path = "/%s/%s" % (path, filename)
+		print "path: %s " % path
 		conn = httplib.HTTPSConnection(se, cert_file=proxy, key_file=proxy)
 		#conn.set_debuglevel(1)
 		try:
@@ -444,11 +446,11 @@ def sign_s3():
 
 
 def get_proxy(vo):
-
+	disable_voms = "true"
 	if vo == "vo.indicate-project.eu":
 		proxy_file = '/tmp/indicate_proxy'
 		robot_serial = '26467'
-		certificate_md5 = '678db46f8ccd12ccb240cd2f91d18205'
+		certificate_md5 = '876149964d57df2310eb3d398f905749'
 		attribute = '/vo.indicate-project.eu'
 	elif vo == "vo.aginfra.eu":
 		robot_serial = '25667'
@@ -470,11 +472,23 @@ def get_proxy(vo):
 		proxy_file = '/tmp/decide_proxy'
 		certificate_md5 = '2ce14167e631d8bd1fb4a5f2b86602e0'
 		attribute='/vo.eu-decide.eu'
-	elif vo == "eumed":
+	elif vo == "eumed" or vo == 'see':
 		robot_serial = '27696'
 		proxy_file = '/tmp/eumed_proxy'
 		certificate_md5 = 'bc681e2bd4c3ace2a4c54907ea0c379b'
 		attribute='/eumed'
+	elif vo == "prod.vo.eu-eela.eu":
+                robot_serial = '31355'
+                proxy_file = '/tmp/eela_proxy'
+                certificate_md5 = '43ddf806454eb55ea32f729c33cc1f07'
+                attribute='/prod.vo.eu-eela.eu'
+		disable_voms = "false"
+	elif vo == "vo.progettovespa.it":
+                robot_serial = '31782'
+                proxy_file = '/tmp/vespa_proxy'
+                certificate_md5 = '2ce14167e631d8bd1fb4a5f2b86602e0'
+                attribute='/vo.progettovespa.it'
+                disable_voms = "false"
 	else:
 		robot_serial = '25207'
 		proxy_file = '/tmp/cataniasg_proxy'
@@ -485,7 +499,7 @@ def get_proxy(vo):
 	print "call to get_proxy"
 	#etokenserver = "myproxy.ct.infn.it"
 	#server_url = "http://myproxy.ct.infn.it:8082/eTokenServer/eToken/%s?voms=%s:%s&proxy-renewal=false&disable-voms-proxy=true" % (certificate_serial, vo, attribute)
-	server_url = "http://etokenserver.ct.infn.it:8082/eTokenServer/eToken/%s?voms=%s:/%s&proxy-renewal=false&disable-voms-proxy=true" % (certificate_md5, vo, attribute)
+	server_url = "http://etokenserver2.ct.infn.it:8082/eTokenServer/eToken/%s?voms=%s:%s&proxy-renewal=false&disable-voms-proxy=%s&rfc-proxy=true&cn-label=eToken:Empty" % (certificate_md5, vo, attribute, disable_voms)
 	print "PROXY REQUEST: ", server_url
 	f = urllib.urlopen(server_url)
 	proxy = open(proxy_file, "w");
