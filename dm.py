@@ -2,7 +2,7 @@ from flask import Flask, request, redirect, abort, jsonify, make_response, curre
 import json, re, urllib, httplib, os, time, base64, hmac, sha, requests
 from poster.encode import multipart_encode
 from poster.streaminghttp import register_openers
-
+from hashlib import sha1
 from datetime import timedelta
 from functools import update_wrapper
 import warcpayload
@@ -100,7 +100,11 @@ def browser(vo,se,path):
 	print resp.reason
 	print resp.getheaders()
 	if resp.status == 207:
-		data = resp.read()
+		try:
+			data = resp.read()
+		except Exception, e:
+			print "eccezione", e
+			abort(500)
 		href = "/"+path
 		print "href>", href
 		href_rel = "/dm/dav/"+vo+"/"+ se + "/" + path
@@ -157,7 +161,7 @@ def download(vo, se, path):
 		print "HTTP_X_FORWARDED_FOR: ", request.environ['HTTP_X_FORWARDED_FOR']
 	#print request.META['HTTP_X_FORWARDED_HOST']
 
-	if se in ['infn-se-03.ct.pi2s2.it', 'se01.grid.arn.dz','se.reef.man.poznan.pl','prod-se-03.ct.infn.it']:
+	if se in ['infn-se-03.ct.pi2s2.it', 'se01.grid.arn.dz','se.reef.man.poznan.pl','prod-se-03.ct.infn.it','gridsrv3-4.dir.garr.it']:
 		if 'HTTP_X_FORWARDED_FOR' in request.environ:
 			headers = {"X-Auth-Ip": request.environ['HTTP_X_FORWARDED_FOR']}
 			path = "/%s" % path
@@ -277,7 +281,7 @@ def put(vo, filename, se, path):
 		
 	proxy = get_proxy(vo)
 
-	if se in ['infn-se-03.ct.pi2s2.it', 'se01.grid.arn.dz','se.reef.man.poznan.pl','prod-se-03.ct.infn.it']:
+	if se in ['infn-se-03.ct.pi2s2.it', 'se01.grid.arn.dz','se.reef.man.poznan.pl','prod-se-03.ct.infn.it','gridsrv3-4.dir.garr.it']:
 		if 'HTTP_X_FORWARDED_FOR' in request.environ:
 			headers = {"X-Auth-Ip": request.environ['HTTP_X_FORWARDED_FOR']}
 		else:
@@ -441,8 +445,39 @@ def sign_s3():
 		'signed_request': '%s?AWSAccessKeyId=%s&Expires=%d&Signature=%s' % (url, AWS_ACCESS_KEY, expires, signature),
 		 'url': url
 	})  
-		
 	
+@dm.route('/cloud/<host>/<path:path>', methods=['GET','PUT'])	
+def swift(host, path):
+	seconds = 60
+	expires = int(time.time() + int(seconds))
+	if not path.startswith('/'):
+		path = '/' + path
+	parts = path.split('/', 4)
+	print "path=", path
+	print "parts=", parts
+	# Must be five parts, ['', 'v1', 'a', 'c', 'o'], must be a v1 request, have
+    	# account, container, and object values, and the object value can't just
+    	# have '/'s.
+	if len(parts) != 5 or parts[0] or parts[1] != 'v1' or not parts[2] or \
+	    not parts[3] or not parts[4].strip('/'):
+		response = jsonify({"error": 'WARNING: "%s" does not refer to an object (e.g. /v1/account/container/object)' % path})
+    		response.status_code = 400
+    		return response
+	print "path corretto"
+	account = parts[2]
+	keys = {
+		"AUTH_51b2f4e508144fa5b0c28f02b1618bfd":"correcthorsebatterystaple",
+		"glibrary":"correcthorsebatterystaple"
+	}
+	try:
+		print "(method, key, expires, path)=", request.method, keys[account], expires, path
+		sig = hmac.new(keys[account], '%s\n%s\n%s' % (request.method, expires, path), sha1).hexdigest()
+		print "signature", sig
+		return jsonify({"url": 'http://%s:8080%s?temp_url_sig=%s&temp_url_expires=%s' % (host, path, sig, expires)})
+	except Exception, e:
+		response = jsonify({"error": "no valid key found for the account %s" % account})
+		response.status_code = 400
+		return response	
 
 
 def get_proxy(vo):
@@ -472,6 +507,7 @@ def get_proxy(vo):
 		proxy_file = '/tmp/decide_proxy'
 		certificate_md5 = '2ce14167e631d8bd1fb4a5f2b86602e0'
 		attribute='/vo.eu-decide.eu'
+		disable_voms = "false"
 	elif vo == "eumed" or vo == 'see':
 		robot_serial = '27696'
 		proxy_file = '/tmp/eumed_proxy'
