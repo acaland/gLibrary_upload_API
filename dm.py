@@ -138,71 +138,79 @@ def whoami():
 	else:
 		return request.environ['SSL_CLIENT_S_DN']   
 
-@dm.route("/<vo>/<se>/<path:path>")
+@dm.route("/<vo>/<se>/<path:path>", methods=['GET','PUT'])
 def download(vo, se, path):
-	print "Download API"
-	print "Cookies:", request.cookies
-	print "VO: ", vo
+	if request.method == 'GET':
+		print "Download API"
+		print "Cookies:", request.cookies
+		print "VO: ", vo
+			
+		#get_proxy(robot_serial, vo, attribute, proxy)
+		proxy = get_proxy(vo)
 		
-	#get_proxy(robot_serial, vo, attribute, proxy)
-	proxy = get_proxy(vo)
-	
-	info = {}
-	info['se'] = se
-	info['path'] = path
-	#print request.args.get('pippo','')
-	info['robot'] = request.args.get('robot_serial','') 
-	info['voms'] = request.args.get('voms','')
-	#link = "https://%s/%s?authip=%s" % (se, path, request.environ['REMOTE_ADDR'])
-	#print "download link: ", link
-	
-	print "REMOTE_ADDR: ", request.environ['REMOTE_ADDR']
-	if 'HTTP_X_FORWARDED_FOR' in request.environ:
-		print "HTTP_X_FORWARDED_FOR: ", request.environ['HTTP_X_FORWARDED_FOR']
-	#print request.META['HTTP_X_FORWARDED_HOST']
-
-	if se in ['infn-se-03.ct.pi2s2.it', 'se01.grid.arn.dz','se.reef.man.poznan.pl','prod-se-03.ct.infn.it','gridsrv3-4.dir.garr.it']:
+		info = {}
+		info['se'] = se
+		info['path'] = path
+		#print request.args.get('pippo','')
+		info['robot'] = request.args.get('robot_serial','') 
+		info['voms'] = request.args.get('voms','')
+		#link = "https://%s/%s?authip=%s" % (se, path, request.environ['REMOTE_ADDR'])
+		#print "download link: ", link
+		
+		print "REMOTE_ADDR: ", request.environ['REMOTE_ADDR']
 		if 'HTTP_X_FORWARDED_FOR' in request.environ:
-			headers = {"X-Auth-Ip": request.environ['HTTP_X_FORWARDED_FOR']}
-			path = "/%s" % path
+			print "HTTP_X_FORWARDED_FOR: ", request.environ['HTTP_X_FORWARDED_FOR']
+		#print request.META['HTTP_X_FORWARDED_HOST']
+
+		if se in ['infn-se-03.ct.pi2s2.it', 'se01.grid.arn.dz','se.reef.man.poznan.pl','prod-se-03.ct.infn.it','gridsrv3-4.dir.garr.it']:
+			if 'HTTP_X_FORWARDED_FOR' in request.environ:
+				headers = {"X-Auth-Ip": request.environ['HTTP_X_FORWARDED_FOR']}
+				path = "/%s" % path
+			else:
+				headers = {"X-Auth-Ip": request.environ['REMOTE_ADDR']}
+				path = "/%s" % path
 		else:
-			headers = {"X-Auth-Ip": request.environ['REMOTE_ADDR']}
-			path = "/%s" % path
-	else:
-		headers = {}
-		if 'HTTP_X_FORWARDED_FOR' in request.environ:
-			path = "/%s?authip=%s" % (path, request.environ['HTTP_X_FORWARDED_FOR'])
-		else:
-			path = "/%s?authip=%s" % (path, request.environ['REMOTE_ADDR'])
+			headers = {}
+			if 'HTTP_X_FORWARDED_FOR' in request.environ:
+				path = "/%s?authip=%s" % (path, request.environ['HTTP_X_FORWARDED_FOR'])
+			else:
+				path = "/%s?authip=%s" % (path, request.environ['REMOTE_ADDR'])
 
 
-	
-	#path = "/%s?authip=%s" % (path, request.environ['REMOTE_ADDR'])
-	print "SE:", se
-	print "PATH:", path
-	print "PROXY:", proxy
-	print "HEADERS:", headers
-	conn = httplib.HTTPSConnection(se, cert_file=proxy, key_file=proxy)
-	try:
-		conn.request("GET", path, None, headers)
-	except Exception, e:
-		#return HttpResponseNotFound("Network error: %s" % e)
-		print e
-		abort(500)
-	resp = conn.getresponse()
-	print "STATUS: ", resp.status
-	print "REASON: " , resp.reason
-	print "HEADERS: ", resp.getheaders()
-	redirect_url = resp.getheader("location")
-	print "REDIRECT URL: ", redirect_url
-	if redirect_url == None:
-		output = resp.read()
-		print "RESPONSE: ", output
+		
+		#path = "/%s?authip=%s" % (path, request.environ['REMOTE_ADDR'])
+		print "SE:", se
+		print "PATH:", path
+		print "PROXY:", proxy
+		print "HEADERS:", headers
+		conn = httplib.HTTPSConnection(se, cert_file=proxy, key_file=proxy)
+		try:
+			conn.request("GET", path, None, headers)
+		except Exception, e:
+			#return HttpResponseNotFound("Network error: %s" % e)
+			print e
+			abort(500)
+		resp = conn.getresponse()
+		print "STATUS: ", resp.status
+		print "REASON: " , resp.reason
+		print "HEADERS: ", resp.getheaders()
+		redirect_url = resp.getheader("location")
+		print "REDIRECT URL: ", redirect_url
+		if redirect_url == None:
+			output = resp.read()
+			print "RESPONSE: ", output
+			conn.close()
+			abort(404)
+			#return HttpResponseNotFound("replica (%s) not found<br>%s" % (link, output))
 		conn.close()
-		abort(404)
-		#return HttpResponseNotFound("replica (%s) not found<br>%s" % (link, output))
-	conn.close()
-	return redirect(redirect_url)
+		return redirect(redirect_url)
+	else:
+		print "Upload PUT API"
+		path_parts = path.split('/')
+		filename = path_parts[len(path_parts) - 1]
+		print "filename", filename
+		newpath = '/'.join(path_parts[:-1])
+		return put(vo, filename, se, newpath)
 	
 	
 @dm.route("/upload/<vo>/<filename>/<se>/<path:path>")
@@ -448,7 +456,7 @@ def sign_s3():
 	
 @dm.route('/cloud/<host>/<path:path>', methods=['GET','PUT'])	
 def swift(host, path):
-	seconds = 60
+	seconds = 10
 	expires = int(time.time() + int(seconds))
 	if not path.startswith('/'):
 		path = '/' + path
@@ -466,8 +474,8 @@ def swift(host, path):
 	print "path corretto"
 	account = parts[2]
 	keys = {
-		"AUTH_51b2f4e508144fa5b0c28f02b1618bfd":"correcthorsebatterystaple",
-		"glibrary":"correcthorsebatterystaple"
+		"AUTH_51b2f4e508144fa5b0c28f02b1618bfd":"",
+		"glibrary":""
 	}
 	try:
 		print "(method, key, expires, path)=", request.method, keys[account], expires, path
@@ -535,7 +543,7 @@ def get_proxy(vo):
 	print "call to get_proxy"
 	#etokenserver = "myproxy.ct.infn.it"
 	#server_url = "http://myproxy.ct.infn.it:8082/eTokenServer/eToken/%s?voms=%s:%s&proxy-renewal=false&disable-voms-proxy=true" % (certificate_serial, vo, attribute)
-	server_url = "http://etokenserver2.ct.infn.it:8082/eTokenServer/eToken/%s?voms=%s:%s&proxy-renewal=false&disable-voms-proxy=%s&rfc-proxy=true&cn-label=eToken:Empty" % (certificate_md5, vo, attribute, disable_voms)
+	server_url = "http://etokenserver.ct.infn.it:8082/eTokenServer/eToken/%s?voms=%s:%s&proxy-renewal=false&disable-voms-proxy=%s&rfc-proxy=true&cn-label=eToken:Empty" % (certificate_md5, vo, attribute, disable_voms)
 	print "PROXY REQUEST: ", server_url
 	f = urllib.urlopen(server_url)
 	proxy = open(proxy_file, "w");
