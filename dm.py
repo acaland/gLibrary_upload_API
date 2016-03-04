@@ -58,6 +58,8 @@ def browser(vo,se,path):
 	print "DAV browser"
 	print "request method>", request.method
 	print "request headers>"
+	dm.logger.info("DAV API. Request Method: %s", request.method)
+	dm.logger.info("VO=%s SE=%s PATH=%s", vo, se, path)
 	headers = {}
 	if request.method == 'MOVE':
 		headers['Overwrite'] = request.headers.get('Overwrite')
@@ -93,12 +95,14 @@ def browser(vo,se,path):
 	except Exception, e:
 		#return HttpResponseNotFound("Network error: %s" % e)
 		print "eccezione", e
+		dm.logger.error(e)
 		abort(500)
 	resp = conn.getresponse()
 	#print "risposta", resp
 	print resp.status, type(resp.status)
 	print resp.reason
 	print resp.getheaders()
+	dm.logger.debug("Status '%s' Reason '%s'", resp.status, resp.reason)
 	if resp.status == 207:
 		try:
 			data = resp.read()
@@ -109,7 +113,9 @@ def browser(vo,se,path):
 		print "href>", href
 		href_rel = "/dm/dav/"+vo+"/"+ se + "/" + path
 		print "href_rel>", href_rel
-		return data.replace(href, href_rel)
+		new_url = data.replace(href, href_rel)
+		dm.logger.info("Request %s completed with status %s", request.method, resp.status, new_url)
+		return new_url
 	else:
 		#print "response>"
 		#print resp.status
@@ -120,6 +126,8 @@ def browser(vo,se,path):
 		#print "after headers", type(resp.getheaders()), response
 		response.status_code = resp.status
 		#print "after status", response
+		dm.logger.info("Request %s completed with status %s", request.method, resp.status)
+		dm.logger.debug("Response Body", response)
 		print "sto restituendo la risposta", resp.status
 		return response
 		#abort(500)
